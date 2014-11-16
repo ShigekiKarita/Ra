@@ -1,0 +1,1 @@
+/usr/bin/c++    -Wl,-search_paths_first -Wl,-headerpad_max_install_names   CMakeFiles/TMP.dir/main.cpp.o  -o TMP  -lpthread /Users/karita/usr/src/gtest-1.7.0/build/libgtest.a /Users/karita/usr/src/gtest-1.7.0/build/libgtest_main.a 
