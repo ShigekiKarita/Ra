@@ -1,28 +1,25 @@
 # CLion default
 cmake_minimum_required(VERSION 2.8.4)
-project(TMP)
+project(Ra)
 set(SOURCE_FILES main.cpp)
-#set(SOURCE_FILES vectorAdd.cu)
 
-#find_package(CUDA REQUIRED)
-#message("-- CUDA --")
-#message("Version: " ${CUDA_VERSION})
-#message("Library: " ${CUDA_CUDA_LIBRARY})
-#message("Runtime: " ${CUDA_CUDART_LIBRARY})
+set(CMAKE_CXX_COMPILER /usr/local/bin/clang++-3.5)
+#set(CMAKE_CXX_COMPILER /usr/bin/clang++)
 
-add_definitions("-Wall")
-add_definitions("-std=c++1y")
+set(CMAKE_CXX_FLAGS "-Wall -std=c++1z -stdlib=libc++ -U__STRICT_ANSI__ -DGTEST_USE_OWN_TR1_TUPLE=1")
 
 set(GTEST_ROOT $ENV{HOME}/usr/src/gtest-1.7.0)
 include_directories(
     ${GTEST_ROOT}/include
     )
 
-add_executable(TMP ${SOURCE_FILES})
-#cuda_add_executable(TMP ${SOURCE_FILES})
+add_executable(${PROJECT_NAME} ${SOURCE_FILES})
 
-target_link_libraries(TMP
+
+target_link_libraries(${PROJECT_NAME} 
     pthread
     ${GTEST_ROOT}/build/libgtest.a
     ${GTEST_ROOT}/build/libgtest_main.a
     )
+
+
