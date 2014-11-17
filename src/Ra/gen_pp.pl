@@ -10,15 +10,21 @@ my $filename = 'generated_preprocessors';
 my $path = $filename . ".hpp";
 open my $fh, '>', $path or die qq/Can't open file "$path" : $!/;
 
+my $max = 256;
+
 
 sub gen_pp {
-    my ($name, $max, $proc, $is3args) = @_;    
+    my ($name, $proc, $is3args, $min) = @_;    
 
     if (!$proc) {
         print $fh "#define ${name}_0(m,p)\n";
     }
+
+    if (!defined($min)) {
+        $min = 1;
+    }
     
-    for (my $i = 1; $i <= $max; ++$i)
+    for (my $i = $min; $i <= $max; ++$i)
     {
         my $lhs = "#define ${name}_${i}(m,p)";
         my $j   = $i - 1;        
@@ -29,18 +35,19 @@ sub gen_pp {
     }
 }
 
+
+
 # ifdef guard
 my $gname = uc($filename) . "_H";
 
-print $fh "
-#ifndef ${gname}
+print $fh "#ifndef ${gname}
 #define ${gname} 1
 
 ";
 
 # pp_repeat
-gen_pp("pp_repeat", 256, '', 1);
-gen_pp("pp_last_repeat", 256);
+gen_pp("pp_repeat", '', 1);
+gen_pp("pp_last_repeat");
 print $fh "
 #define pp_repeat(n, m, l, p) pp_cat(pp_repeat_, pp_dec(n))(m,p) pp_cat(pp_last_repeat_,n)(l,p)
 ";
@@ -50,14 +57,14 @@ print $fh "
 #define pp_inc( n ) pp_inc_n( n )
 #define pp_inc_n( n ) pp_cat( pp_inc_, n )
 ";
-gen_pp("pp_inc", 255, sub {$_[0] + 1});
+gen_pp("pp_inc", sub {$_[0] + 1}, '', 0);
 
 # pp_dec
 print $fh "
 #define pp_dec( n ) pp_dec_n( n )
 #define pp_dec_n( n ) pp_cat( pp_dec_, n )
 ";
-gen_pp("pp_dec", 256, sub {$_[0] - 1});
+gen_pp("pp_dec", sub {$_[0] - 1});
 
 # endif guard
 print $fh "

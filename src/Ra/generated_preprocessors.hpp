@@ -1,4 +1,3 @@
-
 #ifndef GENERATED_PREPROCESSORS_H
 #define GENERATED_PREPROCESSORS_H 1
 
@@ -521,6 +520,7 @@
 
 #define pp_inc( n ) pp_inc_n( n )
 #define pp_inc_n( n ) pp_cat( pp_inc_, n )
+#define pp_inc_0(m,p) 1
 #define pp_inc_1(m,p) 2
 #define pp_inc_2(m,p) 3
 #define pp_inc_3(m,p) 4
@@ -776,6 +776,7 @@
 #define pp_inc_253(m,p) 254
 #define pp_inc_254(m,p) 255
 #define pp_inc_255(m,p) 256
+#define pp_inc_256(m,p) 257
 
 #define pp_dec( n ) pp_dec_n( n )
 #define pp_dec_n( n ) pp_cat( pp_dec_, n )
