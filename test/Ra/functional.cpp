@@ -15,10 +15,10 @@ namespace Ra
 
             function<int()> f;
 
-            f.set_ptr(&func);
+            f = &func;
             ASSERT_EQ(3, f());
 
-            f.set_obj(fun);
+            f = fun;
             ASSERT_EQ(4, f());
         }
 

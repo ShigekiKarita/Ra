@@ -10,6 +10,8 @@
 #define FUNCTOR_H 1
 
 
+#include <type_traits>
+
 namespace Ra
 {
     namespace detail
@@ -48,6 +50,16 @@ namespace Ra
 
     namespace detail
     {
+        struct func_ptr_tag {};
+        struct func_obj_tag {};
+
+        template < typename Func >        
+        using get_func_tag = typename std::conditional<
+            std::is_pointer<Func>::value,
+            func_ptr_tag,
+            func_obj_tag
+            >::type;
+         
         union AnyPointer
         {
             void (*func_ptr)();
@@ -102,6 +114,24 @@ namespace Ra
             }
             _destroy = 0;
         }
+
+        template < class FuncPtr >
+        void assign_to(FuncPtr func_ptr, detail::func_ptr_tag)
+        {
+            clear();
+            _invoke = &detail::FunctionPtrManager<FuncPtr, Result>::invoke;
+            _destroy = &detail::FunctionPtrManager<FuncPtr, Result>::destroy;
+            _functor.func_ptr = reinterpret_cast<void(*)()>(func_ptr);
+        }
+
+        template < class FuncObj >
+        void assign_to(FuncObj func_obj, detail::func_obj_tag)
+        {
+            clear();
+            _invoke = &detail::FunctionObjManager<FuncObj, Result>::invoke;
+            _destroy = &detail::FunctionObjManager<FuncObj, Result>::destroy;
+            _functor.func_obj = reinterpret_cast<void*>(new FuncObj(func_obj));
+        }
         
     public:
         function()
@@ -117,24 +147,13 @@ namespace Ra
         {
             return _invoke(_functor);
         }
-        
+
         template < class Func >
-        void set_ptr(Func func_ptr)
+        function& operator=(Func func)
         {
-            clear();
-            _invoke = &detail::FunctionPtrManager<Func, Result>::invoke;
-            _destroy = &detail::FunctionPtrManager<Func, Result>::destroy;
-            _functor.func_ptr = reinterpret_cast<void(*)()>(func_ptr);
+            assign_to(func, detail::get_func_tag<Func>());
+            return *this;
         }
-       template < class Func >
-        void set_obj(Func func_obj)
-        {
-            clear();
-            _invoke = &detail::FunctionObjManager<Func, Result>::invoke;
-            _destroy = &detail::FunctionObjManager<Func, Result>::destroy;
-            _functor.func_obj = reinterpret_cast<void*>(new Func(func_obj));
-        }
-        
     };
 
     template < class R, class Arg >
