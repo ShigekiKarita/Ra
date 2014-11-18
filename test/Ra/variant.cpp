@@ -1,5 +1,5 @@
 #include <gtest/gtest.h>
-#include "../../src/Ra/variant.hpp"
+#include <Ra/variant.hpp>
 
 
 

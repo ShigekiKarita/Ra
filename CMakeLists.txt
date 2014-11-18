@@ -10,7 +10,8 @@ set(CMAKE_CXX_FLAGS "-Wall -std=c++1z -stdlib=libc++ -U__STRICT_ANSI__ -DGTEST_U
 
 set(GTEST_ROOT $ENV{HOME}/usr/src/gtest-1.7.0)
 include_directories(
-    ${GTEST_ROOT}/include
+  ${GTEST_ROOT}/include
+  src
     )
 
 add_executable(${PROJECT_NAME} ${SOURCE_FILES})

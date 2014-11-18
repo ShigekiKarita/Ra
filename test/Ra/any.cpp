@@ -2,26 +2,33 @@
 
 #include <gtest/gtest.h>
 
-#include "../../src/Ra/any.hpp"
+#include <Ra/any.hpp>
 
 namespace Ra
 {
-    struct Hoge
+    namespace TestAny
     {
-        int x = -1;
-        ~Hoge() {
-            std::cout << "delete Hoge\n";
-        }
-    };
-    
-    TEST(Any, init)
-    {
-        Any val = 3;
-        ASSERT_EQ(typeid(int), val.type());
-        ASSERT_EQ(3, val.cast<int>());
+        bool is_delete = false;
         
-        val = Hoge();
-        ASSERT_EQ(typeid(Hoge), val.type());        
-    }
+        struct Hoge
+        {
+            int x = -1;
+            ~Hoge() {
+                is_delete = true;
+            }
+        };
     
+        TEST(Any, init)
+        {
+            Any val = 3;
+            ASSERT_EQ(typeid(int), val.type());
+            ASSERT_EQ(3, val.cast<int>());
+        
+            val = Hoge();
+            ASSERT_EQ(typeid(Hoge), val.type());
+
+            val = nullptr;
+            ASSERT_TRUE(is_delete);
+        }
+    } // namespace TestAny
 } // namespace Ra

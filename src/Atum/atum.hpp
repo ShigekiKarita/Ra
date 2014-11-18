@@ -45,7 +45,7 @@ namespace Atum
     
     template < class T >
     struct Sizeof
-    { static constexpr size_t value = sizeof(T); };
+    { static constexpr auto value = sizeof(T); };
 
     template < class Head, class... Rest >
     static constexpr auto max_sizeof = detail::max_value_impl<Sizeof, Head, Rest... >::value;
@@ -53,7 +53,7 @@ namespace Atum
 
     template < class T >
     struct Alignof
-    { static constexpr size_t value = alignof(T); };
+    { static constexpr auto value = alignof(T); };
     
     template < class Head, class... Rest >
     using max_alignof = typename detail::max_value_impl<Alignof, Head, Rest... >::type;

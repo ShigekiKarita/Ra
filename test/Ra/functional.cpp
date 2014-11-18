@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include "../../src/Ra/functional.hpp"
+#include <Ra/functional.hpp>
 
 namespace Ra
 {

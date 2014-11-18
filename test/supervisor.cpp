@@ -1,11 +1,11 @@
 #include <vector>
 #include <gtest/gtest.h>
 
-#include "../src/supervisor/crtp.hpp"
-#include "../src/supervisor/lexical_cast.hpp"
-#include "../src/supervisor/policy.hpp"
-#include "../src/supervisor/concept.hpp"
-#include "../src/supervisor/type_traits.hpp"
+#include <supervisor/crtp.hpp>
+#include <supervisor/lexical_cast.hpp>
+#include <supervisor/policy.hpp>
+#include <supervisor/concept.hpp>
+#include <supervisor/type_traits.hpp>
 
 using namespace supervisor;
 

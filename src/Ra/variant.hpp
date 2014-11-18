@@ -104,17 +104,17 @@ namespace Ra
     (Internal&& internal, Storage&& storage, Visitor&& visitor, Args&& ... args)
     {
         using ConstType =
-            class std::conditional<
+            typename std::conditional<
                 std::is_const<
-                    class std::remove_extent<
-                        class std::remove_reference<Storage>::type
+                    typename std::remove_extent<
+                        typename std::remove_reference<Storage>::type
                     >::type
                 >::value,
                 const T,
                 T
             >::type;
 
-        return visitor(detail::get_value(storage, internal),
+        return visitor(detail::get_value(*reinterpret_cast<ConstType*>(storage), internal),
                        std::forward<Args>(args) ... );
     }
 
@@ -124,37 +124,49 @@ namespace Ra
     class Variant
     {
     private:        
-        static constexpr auto _size = Atum::max_sizeof<Head, Rest ...>;
         using _align = Atum::max_alignof< Head, Rest ... >;
+
+        static constexpr auto _size = Atum::max_sizeof<Head, Rest ...>;
         
         union
         {
             char _storage[_size];
         };
 
+        std::size_t _index;
         
-        template < class ... Ts >
+        void set_index(std::size_t index)
+        {
+            _index = index;
+        }
+
+        
+        template <typename... AllTypes>
         struct do_visit
         {
-            template < class Internal, class Storage, class Visitor, class ... Args >
-            class Visitor::result_type operator()
-            (Internal && internal, const std::size_t index, Storage&& storage,
-             Visitor&& visitor, Args&& ... args)
-            {
-                static_assert(index < sizeof ... (Ts), "out of range in visitor");
-                
-                using Caller = class Visitor::result_type (*)
+            template < class Internal, class Storage, class Visitor, class... Args >                
+            typename Visitor::result_type
+            operator()
+            (Internal&& internal, std::size_t index, Storage&& storage, Visitor& visitor, Args&&... args)
+            {                
+                using Caller = typename Visitor::result_type (*)
                     (Internal&&, Storage&&, Visitor&&, Args&&...);
 
-                static Caller callist[sizeof...(Ts)] =
-                    { &visitor_caller<Internal&&, Ts, Storage&&, Visitor, Args&& ... > ... };
+                static Caller callers[sizeof...(AllTypes)] =
+                    {
+                        &visitor_caller<Internal&&, AllTypes, Storage&&, Visitor, Args&&...>...
+                    }; 
 
-                return (*callist[index])(std::forward(internal),
-                                         std::forward(storage),
-                                         std::forward(visitor),
-                                         std::forward(args) ... );
+                assert(index < sizeof...(AllTypes));
+
+                return (*callers[index])
+                    (std::forward<Internal>(internal),
+                     std::forward<Storage>(storage), 
+                     std::forward<Visitor>(visitor), 
+                     std::forward<Args>(args)...);
             }
         };
+
 
         
         class Constructor
@@ -165,11 +177,14 @@ namespace Ra
         public:
             using result_type = void;
 
-            Constructor(Variant& self) : _self(self) {}
+            Constructor(Variant& self) : _self(self)
+            {}
 
             template < class T >
             void operator () (const T& rhs) const
-            { _self.construct(rhs); }
+            {
+                _self.construct(rhs);
+            }
         };
 
         
@@ -185,7 +200,9 @@ namespace Ra
 
             template < class T >
             void operator () (const T& rhs) const
-            { _self.construct(std::move(rhs)); }            
+            {
+                _self.construct(std::move(rhs));
+            }
         };
         
         template <typename T>
@@ -194,14 +211,69 @@ namespace Ra
             using type = typename std::remove_reference<T>::type;
             new (_storage) type(std::forward<T>(t));
         }
+
         
+        struct Assigner
+        {
+            typedef void result_type;
 
-        void indicate_index(std::size_t index)
-        { _index = index; }
+            Assigner(Variant& self, int rhs_which)
+                : m_self(self), m_rhs_which(rhs_which)
+            {
+            }
 
-        std::size_t _index;
+            template <typename Rhs>
+            void operator()(const Rhs& rhs) const
+            {
+                if (m_self.which() == m_rhs_which)
+                {
+                    //the types are the same, so just assign into the lhs
+                    *reinterpret_cast<Rhs*>(m_self.address()) = rhs;
+                }
+                else
+                {
+                    Rhs tmp(rhs);
+                    m_self.destroy(); //nothrow
+                    m_self.construct(std::move(tmp)); //nothrow (please)
+                }
+            }
 
+        private:
+            Variant& m_self;
+            int m_rhs_which;
+        };
+  
+        struct MoveAssigner
+        {
+            typedef void result_type;
 
+            MoveAssigner(Variant& self, int rhs_which)
+                : m_self(self), m_rhs_which(rhs_which)
+            {
+            }
+
+            template <typename Rhs>
+            void operator()(Rhs& rhs) const
+            {
+                typedef typename std::remove_const<Rhs>::type RhsNoConst;
+                if (m_self.which() == m_rhs_which)
+                {
+                    //the types are the same, so just assign into the lhs
+                    *reinterpret_cast<RhsNoConst*>(m_self.address()) = std::move(rhs);
+                }
+                else
+                {
+                    m_self.destroy(); //nothrow
+                    m_self.construct(std::move(rhs)); //nothrow (please)
+                }
+            }
+            
+        private:
+            Variant& m_self;
+            int m_rhs_which;
+        };
+        
+       
         template < class Visitor >
         typename Visitor::result_type
         apply_visitor_internal(Visitor& visitor)
@@ -215,36 +287,119 @@ namespace Ra
         {
             return apply_visitor<std::true_type, Visitor>(visitor);
         }
-                
+
+        
         struct Destroyer
         {
             using result_type = void;
 
             template < class T >
             void operator()(T& t) const
-            { t.~T(); }
+            {
+                t.~T();
+            }
         };
-
         
         void destroy()
         {
             Destroyer d;
-            // apply_visitor_internal(d);
+            apply_visitor_internal(d);
         }
+
+        /// FIXME: Oh, this is tuple
+        template < std::size_t index, class ... Types >
+        struct Initializer;
+
+        template < std::size_t index, class Current, class ... Types >
+        struct Initializer < index, Current, Types ... >
+            : public Initializer < index + 1, Types ... >
+        {
+            using Base = Initializer < index + 1, Types ... >;
+
+            static void init(Variant& v, Current&& c)
+            {
+                v.construct(std::forward<Current>(c));
+                v.set_index(index);
+            }
+
+            static void init(Variant& v, const Current& c)
+            {
+                v.construct(c);
+                v.set_index(index);
+            }
+        };
         
     public:
         Variant()
         {
             construct(Head());
-            indicate_index(0);
+            set_index(0);
         }
 
         ~Variant()
-        { destroy(); }
+        {
+            destroy();
+        }
 
-        template < class T >
-        Variant(T&& t);
+        template <
+            class T ,
+            class _ = typename std::enable_if
+            <
+                !std::is_same
+                <
+                    typename std::remove_reference<Variant<Head, Rest ...>>::type,
+                    typename std::remove_reference<T>::type
+                >::value,
+                T
+            >::type
+        >
+        Variant(T&& t)
+        {
+            static_assert(!std::is_same< Variant<Head, Rest ...>, T>::value,
+                          "Error: fail to instatiate with Variant(T&&)");
+            
+            Initializer<0, Head, Rest ...>::init(*this, std::forward<T>(t));
+        }
 
+        Variant(const Variant& rhs)
+        {
+            Constructor c(*this);
+            rhs.apply_visitor_internal(c);
+            set_index(rhs.which());
+        }
+
+        Variant(Variant&& rhs)
+        {
+            MoveConstructor mc(*this);
+            rhs.apply_visitor_internal(mc);
+            set_index(rhs.which());
+        }
+
+        Variant& operator=(const Variant& rhs)
+        {
+            if (this != &rhs)
+            {
+                Assigner a(*this, rhs.which());
+                rhs.apply_visitor_internal(a);
+                set_index(rhs.which());
+            }
+            return *this;
+        }
+
+        Variant& operator=(Variant&& rhs)
+        {
+            if (this != &rhs)
+            {
+                MoveAssigner ma(*this, rhs.which());
+                rhs.apply_visitor_internal(ma);
+                set_index(rhs.which());
+            }
+            return *this;
+        }
+
+        std::size_t which() const {return _index;}
+
+        
         template < class Internal, class Visitor, class ... Args>
         typename Visitor::result_type
         apply_visitor(Visitor& visitor, Args&&... args)
