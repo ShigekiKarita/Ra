@@ -99,9 +99,8 @@ namespace Ra
     } // namespace detail
 
 
-    template < class Internal, class T, class Storage, class Visitor,
-               class ... Args >
-    class Visitor::result_type visitor_caller
+    template < class Internal, class T, class Storage, class Visitor, class ... Args >
+    typename Visitor::result_type visitor_caller
     (Internal&& internal, Storage&& storage, Visitor&& visitor, Args&& ... args)
     {
         using ConstType =
