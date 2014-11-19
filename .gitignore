@@ -1,0 +1,9 @@
+/*
+!/src
+!/test
+
+.gitignore
+CMakeLists.txt
+README.md
+main.cpp
+run_test.sh
