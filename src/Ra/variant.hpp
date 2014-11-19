@@ -127,13 +127,13 @@ namespace Ra
         using _align = Atum::max_alignof< Head, Rest ... >;
 
         static constexpr auto _size = Atum::max_sizeof<Head, Rest ...>;
-        
+
+        std::size_t _index;
+
         union
         {
             char _storage[_size];
         };
-
-        std::size_t _index;
         
         void set_index(std::size_t index)
         {
@@ -167,7 +167,6 @@ namespace Ra
             }
         };
 
-
         
         class Constructor
         {
@@ -196,7 +195,8 @@ namespace Ra
         public:
             using result_type = void;
 
-            MoveConstructor(Variant& self) : _self(self) {}
+            MoveConstructor(Variant& self) : _self(self)
+            {}
 
             template < class T >
             void operator () (const T& rhs) const
@@ -217,63 +217,74 @@ namespace Ra
         {
             typedef void result_type;
 
-            Assigner(Variant& self, int rhs_which)
-                : m_self(self), m_rhs_which(rhs_which)
-            {
-            }
-
-            template <typename Rhs>
+            Assigner(Variant& self, std::size_t rhs_index)
+                : _self(self), _rhs_index(rhs_index)
+            {}
+            
+            template < class Rhs >
             void operator()(const Rhs& rhs) const
             {
-                if (m_self.which() == m_rhs_which)
+                if (_self.which() == _rhs_index)
                 {
                     //the types are the same, so just assign into the lhs
-                    *reinterpret_cast<Rhs*>(m_self.address()) = rhs;
+                    *reinterpret_cast<Rhs*>(_self._storage) = rhs;
                 }
                 else
                 {
                     Rhs tmp(rhs);
-                    m_self.destroy(); //nothrow
-                    m_self.construct(std::move(tmp)); //nothrow (please)
+                    _self.destroy();
+                    _self.construct(std::move(tmp));
                 }
             }
 
         private:
-            Variant& m_self;
-            int m_rhs_which;
+            Variant& _self;
+            std::size_t _rhs_index;
         };
-  
+
+        
         struct MoveAssigner
         {
             typedef void result_type;
 
-            MoveAssigner(Variant& self, int rhs_which)
-                : m_self(self), m_rhs_which(rhs_which)
-            {
-            }
+            MoveAssigner(Variant& self, std::size_t rhs_index)
+                : _self(self), _rhs_index(rhs_index)
+            {}
 
-            template <typename Rhs>
+            template < class Rhs >
             void operator()(Rhs& rhs) const
             {
-                typedef typename std::remove_const<Rhs>::type RhsNoConst;
-                if (m_self.which() == m_rhs_which)
+                using RhsNoConst = typename std::remove_const<Rhs>::type;
+
+                if (_self.which() == _rhs_index)
                 {
                     //the types are the same, so just assign into the lhs
-                    *reinterpret_cast<RhsNoConst*>(m_self.address()) = std::move(rhs);
+                    *reinterpret_cast<RhsNoConst*>(_self._storage) = std::move(rhs);
                 }
                 else
                 {
-                    m_self.destroy(); //nothrow
-                    m_self.construct(std::move(rhs)); //nothrow (please)
+                    _self.destroy(); //nothrow
+                    _self.construct(std::move(rhs)); //nothrow (please)
                 }
             }
             
         private:
-            Variant& m_self;
-            int m_rhs_which;
+            Variant& _self;
+            std::size_t _rhs_index;
         };
         
-       
+        
+        struct Destroyer
+        {
+            using result_type = void;
+
+            template < class T >
+            void operator()(T& t) const
+            {
+                t.~T();
+            }
+        };
+               
         template < class Visitor >
         typename Visitor::result_type
         apply_visitor_internal(Visitor& visitor)
@@ -287,18 +298,6 @@ namespace Ra
         {
             return apply_visitor<std::true_type, Visitor>(visitor);
         }
-
-        
-        struct Destroyer
-        {
-            using result_type = void;
-
-            template < class T >
-            void operator()(T& t) const
-            {
-                t.~T();
-            }
-        };
         
         void destroy()
         {
@@ -306,6 +305,7 @@ namespace Ra
             apply_visitor_internal(d);
         }
 
+        
         /// FIXME: Oh, this is tuple
         template < std::size_t index, class ... Types >
         struct Initializer;
@@ -327,6 +327,12 @@ namespace Ra
                 v.construct(c);
                 v.set_index(index);
             }
+        };
+
+        template < std::size_t index >
+        struct Initializer < index >
+        {
+            void initialize();
         };
         
     public:
@@ -398,7 +404,6 @@ namespace Ra
         }
 
         std::size_t which() const {return _index;}
-
         
         template < class Internal, class Visitor, class ... Args>
         typename Visitor::result_type
@@ -417,7 +422,6 @@ namespace Ra
         }
     };
 
-
     template <typename Visitor, typename Visitable, typename... Args>
     typename Visitor::result_type
     apply_visitor(Visitor& visitor, Visitable& visitable, Args&&... args)
@@ -432,9 +436,7 @@ namespace Ra
     {
         return visitable.template apply_visitor<std::false_type>
             (visitor, std::forward<Args>(args)...);
-    }
-
-    
+    }    
 } // namespace Ra
 
 
