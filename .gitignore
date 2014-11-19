@@ -2,6 +2,7 @@
 !/src
 !/test
 
+.travis.yml
 .gitignore
 CMakeLists.txt
 README.md
